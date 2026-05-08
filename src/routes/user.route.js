@@ -35,4 +35,17 @@ router.post("/otp-verification", userController.OtpVerification)
 
 // ---------------------------------------------------------------------------------------------------
 
+
+/**
+ * @POST /api/v1/users/login
+ * @Description User Login Route
+ */
+
+router.post("/login" , userController.Login)
+
+
+
+
+
+
 module.exports = router

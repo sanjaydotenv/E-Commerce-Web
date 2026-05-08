@@ -3,7 +3,7 @@ const userModel = require('../models/user.model')
 const config = require('../config/config')
 const constants = require('../constants')
 
-const GenerateAccessAndRefreshToken = (userId) => {
+const GenerateAccessAndRefreshToken = async (userId) => {
     
     const user = await userModel.findById(userId)
 

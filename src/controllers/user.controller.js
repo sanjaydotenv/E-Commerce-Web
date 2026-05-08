@@ -10,6 +10,16 @@ const accessTokenAndrefreshTokenGenerator = require('../utils/GetRefreshAndAcces
 const sessionModel = require('../models/session.model')
 
 
+
+// ---------------------------------------------------------------------------------------------------
+
+
+
+/**
+ * @API User Registration Api
+ * @Description This controller registers the user and sends an OTP to their email address for verification.
+ */
+
 const Register = async (req, res) => {
 
   const { userName, email, password } = req.body;
@@ -72,6 +82,16 @@ const Register = async (req, res) => {
 };
 
 
+
+// ---------------------------------------------------------------------------------------------------
+
+
+
+/**
+ * @API OTP Verification API
+ * @Description This controller checks whether the provided OTP is valid or invalid.
+ */
+
 const OtpVerification = async (req, res) => {
   
   const { email, otp } = req.body;
@@ -96,7 +116,11 @@ const OtpVerification = async (req, res) => {
     { new: true },
   );
 
-  const {accessToken , refreshToken} = accessTokenAndrefreshTokenGenerator(verifiedUser._id)
+  console.log(verifiedUser)
+
+  await otpModel.deleteMany({ email })
+
+  const {accessToken , refreshToken} = await accessTokenAndrefreshTokenGenerator(verifiedUser._id)
 
   const refreshTokenHash = await bcrypt.hash(refreshToken , 12)
 
@@ -107,23 +131,98 @@ const OtpVerification = async (req, res) => {
     userAgent: req.headers["user-agent"]
   })
 
+  res.cookie("refreshToken", refreshToken , {
+    httpOnly: true,
+    secure: true,
+    sameSite: "Strict"
+  })
+
   res.status(200).json(new ResponseApi(200, {
       userName: verifiedUser.userName,
       email: verifiedUser.email,
       accessToken
     }, "OTP Verification Successfully"));
 
-
-
 };
 
 
 
+// ---------------------------------------------------------------------------------------------------
 
 
 
+/**
+ * @API User Login API
+ * @Description This controller logs in a valid user.
+ */
+
+
+const Login = async (req,res) => {
+
+  const {userName , email , password} = req.body
+
+  if (!userName || !email || !password) {
+    throw new ErrorApi(400 , "All fields not provided")
+  }
+
+  const user = await userModel.findOne({
+    $or: [
+      {userName},
+      {email}
+    ]
+  })
+
+  if (!user) {
+    throw new ErrorApi(401 , "User not found")
+  }
+
+  if (!user.isVerify){
+    throw new ErrorApi(409 , "User is not Verified")
+  }
+
+  const isPasswordValid = await bcrypt.compare(password , user.password)
+
+  if (!isPasswordValid){
+    throw new ErrorApi(400 , "Password is Incorrect Enter a Valid Password")
+  }
+
+  const { refreshToken , accessToken } = await accessTokenAndrefreshTokenGenerator(user._id)
+
+  const refreshTokenHash = await bcrypt.hash(refreshToken , 12)
+
+  await sessionModel.create({
+    user: user._id,
+    refreshTokenHash,
+    ip: req.ip,
+    userAgent: req.headers["user-agent"]
+  })
+
+  res.cookie("refreshToken", refreshToken , {
+    httpOnly: true,
+    secure: true,
+    sameSite: "Strict",
+  })
+
+  res.status(200).json(new ResponseApi(200 , {
+    userName: user.userName,
+    email: user.email,
+    accessToken
+  } , "User Logged in Successfully"))
+
+}
+
+
+
+
+
+
+
+
+
+// ---------------------------------------------------------------------------------------------------
 
 module.exports = {
   Register,
   OtpVerification,
+  Login
 };
