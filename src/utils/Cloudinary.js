@@ -1,5 +1,6 @@
 const cloudinary = require('cloudinary')
 const config = require('../config/config')
+const fs = require('fs')
 
 cloudinary.config({
     cloud_name: config.CLOUDINARY_NAME, 
@@ -14,8 +15,12 @@ const uploadOnCloudinary = async (file) => {
         const response = cloudinary.v2.uploader.upload(file , {
             resource_type: "auto"
         })
+        
+        fs.unlinkSync(file)
         return response
+
     } catch (error) {
+        fs.unlinkSync(file)
         console.log(`Image Upload Failed On Cloudinary`)
         return null
     }
