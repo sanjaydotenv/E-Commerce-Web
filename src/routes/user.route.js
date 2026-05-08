@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 
+// ---------------------------------------------------------------------------------------------------
 
 /**
  * Require Controllers
@@ -8,6 +9,7 @@ const router = express.Router()
 
 const userController = require('../controllers/user.controller')
 
+// ---------------------------------------------------------------------------------------------------
 
 /**
  * Require Middlewares
@@ -15,11 +17,22 @@ const userController = require('../controllers/user.controller')
 
 const upload = require('../middleware/multer.middleware')
 
-/**
- * Use Controllers
- */
+// ---------------------------------------------------------------------------------------------------
 
+/**
+ * @POST /api/v1/users/register
+ * @Description User Registration Route
+ */
 router.post("/register", upload.fields([{name: "profilePicture" , maxCount: 1} , {name: "coverPicture" , maxCount: 1}]) , userController.Register)
 
+// ---------------------------------------------------------------------------------------------------
+
+/**
+ * @POST /api/v1/users/Otp-verification
+ * @Description Otp Verification Route
+ */
+router.post("/otp-verification", userController.OtpVerification)
+
+// ---------------------------------------------------------------------------------------------------
 
 module.exports = router

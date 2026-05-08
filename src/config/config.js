@@ -32,6 +32,10 @@ if (!process.env.GOOGLE_CLOUD_USER){
     throw new Error("GOOGLE_CLOUD_CLIENT_ID is not defined in environment variable")
 }
 
+if (!process.env.JWT_SECRET_KEY){
+    throw new Error("JWT_SECRET_KEY is not defined in environment variable")
+}
+
 const config = {
     MONGODB_URI: process.env.MONGODB_URI,
 
@@ -43,6 +47,8 @@ const config = {
     GOOGLE_CLOUD_CLIENT_SECRET: process.env.GOOGLE_CLOUD_CLIENT_SECRET,
     GOOGLE_CLOUD_REFRESH_TOKEN: process.env.GOOGLE_CLOUD_REFRESH_TOKEN,
     GOOGLE_CLOUD_USER: process.env.GOOGLE_CLOUD_USER,
+
+    JWT_SECRET_KEY: process.env.JWT_SECRET_KEY
 }
 
 

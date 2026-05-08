@@ -4,17 +4,17 @@ const mongoose = require('mongoose')
 const userSchema = new mongoose.Schema({
     userName: {
         type: String,
-        required: [true , "userName is required for registraction"],
-        unique: [true , "userName is unique for registraction"]
+        required: [true , "userName is required for registration"],
+        unique: [true , "userName is unique for registration"]
     },
     email: {
         type: String,
-        required: [true , "email is required for registraction"],
-        unique: [true , "email is unique for registraction"]
+        required: [true , "email is required for registration"],
+        unique: [true , "email is unique for registration"]
     },
     password: {
         type: String,
-        required: [true , "password is required for registraction"],
+        required: [true , "password is required for registration"],
     },
     profilePicture: {
         type: String,
