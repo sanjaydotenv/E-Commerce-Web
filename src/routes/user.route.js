@@ -44,8 +44,19 @@ router.post("/otp-verification", userController.OtpVerification)
 router.post("/login" , userController.Login)
 
 
+// ---------------------------------------------------------------------------------------------------
+
+
+/**
+ * @GET /api/v1/user/logout
+ * @description User Logout Route 
+ */
+
+router.get("/logout", userController.Logout)
 
 
 
+
+// ---------------------------------------------------------------------------------------------------
 
 module.exports = router

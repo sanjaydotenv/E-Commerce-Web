@@ -8,6 +8,8 @@ const sendEmail = require("../utils/SendMail");
 const otpModel = require("../models/otp.model");
 const accessTokenAndrefreshTokenGenerator = require('../utils/GetRefreshAndAccessToken')
 const sessionModel = require('../models/session.model')
+const jwt = require('jsonwebtoken');
+const config = require('../config/config')
 
 
 
@@ -161,8 +163,12 @@ const Login = async (req,res) => {
 
   const {userName , email , password} = req.body
 
-  if (!userName || !email || !password) {
-    throw new ErrorApi(400 , "All fields not provided")
+  if (!userName && !email) {
+    throw new ErrorApi(400 , "Enter a userName or Email")
+  }
+
+  if (!password) {
+    throw new ErrorApi(400 , "Password is required")
   }
 
   const user = await userModel.findOne({
@@ -213,6 +219,61 @@ const Login = async (req,res) => {
 
 
 
+// ---------------------------------------------------------------------------------------------------
+
+
+
+/**
+ * @API USer Logout API
+ * @description This Controller Logged Out The User
+ */
+
+const Logout = async (req,res) => {
+
+  const refreshToken = req.cookies.refreshToken
+
+  if (!refreshToken) {
+    throw new ErrorApi(400 , "Refresh Token Not Provided")
+  }
+
+  let decoded
+  try {
+    decoded = jwt.verify(refreshToken , config.JWT_SECRET_KEY)
+  } catch (error) {
+    console.log(`Refresh Token Verification failed ${error.message}`)
+  }
+
+
+  const user = await userModel.findById(decoded.id)
+
+
+  const session = await sessionModel.findOne({user: user._id})
+
+  if (!session) {
+    throw new ErrorApi(409 , "Session not found")
+  }
+
+  if (session.revoked) {
+    throw new ErrorApi(400 , "Invalid Refresh Token Session is Revoked")
+  }
+
+  const isValidRefreshToken = await bcrypt.compare(refreshToken , session.refreshTokenHash)
+
+
+  if (!isValidRefreshToken){
+    throw new ErrorApi(400 , "Refresh Token is Invalid")
+  }
+
+  session.revoked = true
+  await session.save()
+
+  res.clearCookie('refreshToken')
+
+  res.status(200).json(new ResponseApi(200 , null , "User Logged Out Successfully"))
+
+}
+
+
 
 
 
@@ -224,5 +285,6 @@ const Login = async (req,res) => {
 module.exports = {
   Register,
   OtpVerification,
-  Login
+  Login,
+  Logout
 };
