@@ -6,15 +6,14 @@ const ResponseApi = require("../utils/ResponseApi");
 const { GetOtp, GetOtpHtml } = require("../utils/OtpGenerator");
 const sendEmail = require("../utils/SendMail");
 const otpModel = require("../models/otp.model");
-const accessTokenAndrefreshTokenGenerator = require('../utils/GetRefreshAndAccessToken')
-const sessionModel = require('../models/session.model')
-const jwt = require('jsonwebtoken');
-const config = require('../config/config')
+const accessTokenAndrefreshTokenGenerator = require("../utils/GetRefreshAndAccessToken");
+const sessionModel = require("../models/session.model");
+const jwt = require("jsonwebtoken");
+const config = require("../config/config");
 
 
 
 // ---------------------------------------------------------------------------------------------------
-
 
 
 /**
@@ -23,7 +22,6 @@ const config = require('../config/config')
  */
 
 const Register = async (req, res) => {
-
   const { userName, email, password } = req.body;
 
   if (!userName || !email || !password) {
@@ -64,29 +62,33 @@ const Register = async (req, res) => {
     // coverPicture: coverPicture?.url
   });
 
-  
   const Otp = GetOtp();
   const html = GetOtpHtml(Otp);
-  
+
   const otpHash = await bcrypt.hash(String(Otp), 12);
-  
+
   await otpModel.create({
     email,
     user: user._id,
     otpHash,
   });
-  
+
   await sendEmail(email, "Email Verification Mail", `Your OTP is ${Otp}`, html);
 
-
-  res.status(201).json(new ResponseApi(201, user, "User Created Successfully Please Verify Your Email Address"));
-
+  res
+    .status(201)
+    .json(
+      new ResponseApi(
+        201,
+        user,
+        "User Created Successfully Please Verify Your Email Address",
+      ),
+    );
 };
 
 
 
 // ---------------------------------------------------------------------------------------------------
-
 
 
 /**
@@ -95,7 +97,6 @@ const Register = async (req, res) => {
  */
 
 const OtpVerification = async (req, res) => {
-  
   const { email, otp } = req.body;
 
   const isExists = await otpModel.findOne({
@@ -118,33 +119,40 @@ const OtpVerification = async (req, res) => {
     { new: true },
   );
 
-  console.log(verifiedUser)
+  await otpModel.deleteMany({ email });
 
-  await otpModel.deleteMany({ email })
-
-  const {accessToken , refreshToken} = await accessTokenAndrefreshTokenGenerator(verifiedUser._id)
-
-  const refreshTokenHash = await bcrypt.hash(refreshToken , 12)
-
-  await sessionModel.create({
+  const session = await sessionModel.create({
     user: verifiedUser._id,
-    refreshTokenHash,
+    revoked: false,
     ip: req.ip,
-    userAgent: req.headers["user-agent"]
-  })
+    userAgent: req.headers["user-agent"],
+  });
 
-  res.cookie("refreshToken", refreshToken , {
+  const { accessToken, refreshToken } =
+    await accessTokenAndrefreshTokenGenerator(verifiedUser._id, session._id);
+
+  const refreshTokenHash = await bcrypt.hash(refreshToken, 12);
+
+  session.refreshTokenHash = refreshTokenHash;
+  await session.save();
+
+  res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
     secure: true,
-    sameSite: "Strict"
-  })
+    sameSite: "Strict",
+  });
 
-  res.status(200).json(new ResponseApi(200, {
-      userName: verifiedUser.userName,
-      email: verifiedUser.email,
-      accessToken
-    }, "OTP Verification Successfully"));
-
+  res.status(200).json(
+    new ResponseApi(
+      200,
+      {
+        userName: verifiedUser.userName,
+        email: verifiedUser.email,
+        accessToken,
+      },
+      "OTP Verification Successfully",
+    ),
+  );
 };
 
 
@@ -152,126 +160,184 @@ const OtpVerification = async (req, res) => {
 // ---------------------------------------------------------------------------------------------------
 
 
-
 /**
  * @API User Login API
  * @Description This controller logs in a valid user.
  */
 
-
-const Login = async (req,res) => {
-
-  const {userName , email , password} = req.body
+const Login = async (req, res) => {
+  const { userName, email, password } = req.body;
 
   if (!userName && !email) {
-    throw new ErrorApi(400 , "Enter a userName or Email")
+    throw new ErrorApi(400, "Enter a userName or Email");
   }
 
   if (!password) {
-    throw new ErrorApi(400 , "Password is required")
+    throw new ErrorApi(400, "Password is required");
   }
 
   const user = await userModel.findOne({
-    $or: [
-      {userName},
-      {email}
-    ]
-  })
+    $or: [{ userName }, { email }],
+  });
 
   if (!user) {
-    throw new ErrorApi(401 , "User not found")
+    throw new ErrorApi(401, "User not found");
   }
 
-  if (!user.isVerify){
-    throw new ErrorApi(409 , "User is not Verified")
+  if (!user.isVerify) {
+    throw new ErrorApi(409, "User is not Verified");
   }
 
-  const isPasswordValid = await bcrypt.compare(password , user.password)
+  const isPasswordValid = await bcrypt.compare(password, user.password);
 
-  if (!isPasswordValid){
-    throw new ErrorApi(400 , "Password is Incorrect Enter a Valid Password")
+  if (!isPasswordValid) {
+    throw new ErrorApi(400, "Password is Incorrect Enter a Valid Password");
   }
 
-  const { refreshToken , accessToken } = await accessTokenAndrefreshTokenGenerator(user._id)
-
-  const refreshTokenHash = await bcrypt.hash(refreshToken , 12)
-
-  await sessionModel.create({
+  const session = await sessionModel.create({
     user: user._id,
-    refreshTokenHash,
+    revoked: false,
     ip: req.ip,
-    userAgent: req.headers["user-agent"]
-  })
+    userAgent: req.headers["user-agent"],
+  });
 
-  res.cookie("refreshToken", refreshToken , {
+  const { refreshToken, accessToken } =
+    await accessTokenAndrefreshTokenGenerator(user._id, session._id);
+
+  const refreshTokenHash = await bcrypt.hash(refreshToken, 12);
+
+  session.refreshTokenHash = refreshTokenHash;
+  await session.save();
+
+  res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
     secure: true,
     sameSite: "Strict",
-  })
+  });
 
-  res.status(200).json(new ResponseApi(200 , {
-    userName: user.userName,
-    email: user.email,
-    accessToken
-  } , "User Logged in Successfully"))
-
-}
+  res.status(200).json(
+    new ResponseApi(
+      200,
+      {
+        userName: user.userName,
+        email: user.email,
+        accessToken,
+      },
+      "User Logged in Successfully",
+    ),
+  );
+};
 
 
 
 // ---------------------------------------------------------------------------------------------------
 
 
-
 /**
- * @API USer Logout API
- * @description This Controller Logged Out The User
+ * @API User Logout APIo
+ * @description This Contrller Logged Out The User
  */
 
-const Logout = async (req,res) => {
-
-  const refreshToken = req.cookies.refreshToken
+const Logout = async (req, res) => {
+  const refreshToken = req.cookies.refreshToken;
 
   if (!refreshToken) {
-    throw new ErrorApi(400 , "Refresh Token Not Provided")
+    throw new ErrorApi(400, "Refresh Token Not Provided");
   }
 
-  let decoded
+  let decoded;
   try {
-    decoded = jwt.verify(refreshToken , config.JWT_SECRET_KEY)
+    decoded = jwt.verify(refreshToken, config.JWT_SECRET_KEY);
   } catch (error) {
-    console.log(`Refresh Token Verification failed ${error.message}`)
+    console.log(`Refresh Token Verification failed ${error.message}`);
   }
 
-
-  const user = await userModel.findById(decoded.id)
-
-
-  const session = await sessionModel.findOne({user: user._id})
+  const session = await sessionModel.findById(decoded.sessionId);
 
   if (!session) {
-    throw new ErrorApi(409 , "Session not found")
+    throw new ErrorApi(409, "Session not found");
   }
 
   if (session.revoked) {
-    throw new ErrorApi(400 , "Invalid Refresh Token Session is Revoked")
+    throw new ErrorApi(400, "Invalid Refresh Token Session is Revoked");
   }
 
-  const isValidRefreshToken = await bcrypt.compare(refreshToken , session.refreshTokenHash)
+  const isValidRefreshToken = await bcrypt.compare(
+    refreshToken,
+    session.refreshTokenHash,
+  );
 
-
-  if (!isValidRefreshToken){
-    throw new ErrorApi(400 , "Refresh Token is Invalid")
+  if (!isValidRefreshToken) {
+    throw new ErrorApi(400, "Refresh Token is Invalid");
   }
 
-  session.revoked = true
-  await session.save()
+  session.revoked = true;
+  await session.save();
 
-  res.clearCookie('refreshToken')
+  res.clearCookie("refreshToken");
 
-  res.status(200).json(new ResponseApi(200 , null , "User Logged Out Successfully"))
+  res
+    .status(200)
+    .json(new ResponseApi(200, null, "User Logged Out Successfully"));
+};
 
-}
+
+
+// ---------------------------------------------------------------------------------------------------
+
+
+/**
+ * @API User All Device Logout Device API
+ * @Description This Controller Logged Out User From All Devices
+ */
+
+const LogoutFromAllDevice = async (req, res) => {
+  const refreshToken = req.cookies.refreshToken;
+
+  if (!refreshToken) {
+    throw new ErrorApi(400, "Refresh Token not Provided");
+  }
+
+  let decoded;
+  try {
+    decoded = jwt.verify(refreshToken, config.JWT_SECRET_KEY);
+  } catch (error) {
+    console.log(`Refresh Token Verification Failed ${error.message}`);
+  }
+
+  const session = await sessionModel.findById(decoded.sessionId);
+
+  if (!session) {
+    throw new ErrorApi(400, "Session not found");
+  }
+
+  if (session.revoked) {
+    throw new ErrorApi(400, "Invalid Refresh Token Session is Revoked");
+  }
+
+  const isValidRefreshToken = await bcrypt.compare(
+    refreshToken,
+    session.refreshTokenHash,
+  );
+
+  if (!isValidRefreshToken) {
+    throw new ErrorApi(400, "Invalid Refresh Token");
+  }
+
+  await sessionModel.updateMany(
+    {
+      user: decoded.id,
+      revoked: false,
+    },
+    { revoked: true },
+  );
+
+  res.clearCookie("refreshToken");
+
+  res
+    .status(200)
+    .json(new ResponseApi(200, null, "All Device Logged Out Successfully"));
+};
 
 
 
@@ -286,5 +352,6 @@ module.exports = {
   Register,
   OtpVerification,
   Login,
-  Logout
+  Logout,
+  LogoutFromAllDevice,
 };

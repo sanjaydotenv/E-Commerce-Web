@@ -3,7 +3,7 @@ const userModel = require('../models/user.model')
 const config = require('../config/config')
 const constants = require('../constants')
 
-const GenerateAccessAndRefreshToken = async (userId) => {
+const GenerateAccessAndRefreshToken = async (userId , sessionId) => {
     
     const user = await userModel.findById(userId)
 
@@ -16,6 +16,7 @@ const GenerateAccessAndRefreshToken = async (userId) => {
 
     const refreshToken = jwt.sign({
         id: user._id,
+        sessionId: sessionId
     } , config.JWT_SECRET_KEY , {
         expiresIn: constants.REFRESH_TOKEN_EXPIRY
     })

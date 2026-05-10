@@ -55,7 +55,14 @@ router.post("/login" , userController.Login)
 router.get("/logout", userController.Logout)
 
 
+// ---------------------------------------------------------------------------------------------------
 
+
+/**
+ * @GET /api/v1/user/logoout-from-all
+ * @Description User Logout From All Device Route
+ */
+router.get("/logout-from-all-device", userController.LogoutFromAllDevice)
 
 // ---------------------------------------------------------------------------------------------------
 
