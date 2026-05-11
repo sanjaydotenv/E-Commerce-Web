@@ -11,10 +11,7 @@ const sessionModel = require("../models/session.model");
 const jwt = require("jsonwebtoken");
 const config = require("../config/config");
 
-
-
 // ---------------------------------------------------------------------------------------------------
-
 
 /**
  * @API User Registration Api
@@ -86,10 +83,7 @@ const Register = async (req, res) => {
     );
 };
 
-
-
 // ---------------------------------------------------------------------------------------------------
-
 
 /**
  * @API OTP Verification API
@@ -155,10 +149,7 @@ const OtpVerification = async (req, res) => {
   );
 };
 
-
-
 // ---------------------------------------------------------------------------------------------------
-
 
 /**
  * @API User Login API
@@ -228,10 +219,7 @@ const Login = async (req, res) => {
   );
 };
 
-
-
 // ---------------------------------------------------------------------------------------------------
-
 
 /**
  * @API User Logout APIo
@@ -249,7 +237,10 @@ const Logout = async (req, res) => {
   try {
     decoded = jwt.verify(refreshToken, config.JWT_SECRET_KEY);
   } catch (error) {
-    console.log(`Refresh Token Verification failed ${error.message}`);
+    throw new ErrorApi(
+      400,
+      `Refresh Token Verification Failed ${error.message}`,
+    );
   }
 
   const session = await sessionModel.findById(decoded.sessionId);
@@ -281,10 +272,7 @@ const Logout = async (req, res) => {
     .json(new ResponseApi(200, null, "User Logged Out Successfully"));
 };
 
-
-
 // ---------------------------------------------------------------------------------------------------
-
 
 /**
  * @API User All Device Logout Device API
@@ -302,7 +290,10 @@ const LogoutFromAllDevice = async (req, res) => {
   try {
     decoded = jwt.verify(refreshToken, config.JWT_SECRET_KEY);
   } catch (error) {
-    console.log(`Refresh Token Verification Failed ${error.message}`);
+    throw new ErrorApi(
+      400,
+      `Refresh Token Verification Failed ${error.message}`,
+    );
   }
 
   const session = await sessionModel.findById(decoded.sessionId);
@@ -339,9 +330,140 @@ const LogoutFromAllDevice = async (req, res) => {
     .json(new ResponseApi(200, null, "All Device Logged Out Successfully"));
 };
 
+/**
+ * @API Get-Me User API
+ * @description This Controller Fetch The User Information And Give Us
+ */
 
+const GetMe = async (req, res) => {
+  const accessToken = req.headers.authorization?.split(" ")[1];
 
+  if (!accessToken) {
+    throw new ErrorApi(400, "Access Token Not Found");
+  }
 
+  let decoded;
+  try {
+    decoded = jwt.verify(accessToken, config.JWT_SECRET_KEY);
+  } catch (error) {
+    throw new ErrorApi(
+      400,
+      `Access Token Verification Failed ${error.message}`,
+    );
+  }
+
+  const user = await userModel.findById(decoded.id);
+
+  if (!user) {
+    throw new ErrorApi(400, "User Not Found");
+  }
+
+  res.status(200).json(
+    new ResponseApi(
+      200,
+      {
+        _id: user._id,
+        userName: user.userName,
+        email: user.email,
+        isVerify: user.isVerify,
+      },
+      "User Fetched Successfully",
+    ),
+  );
+};
+
+// ---------------------------------------------------------------------------------------------------
+
+/**
+ * @API Token Rotation API
+ * @description This Controller Generate The New AccessToken And RefreshToken
+ */
+
+const TokenRotation = async (req, res) => {
+  const getRefreshToken = req.cookies.refreshToken;
+
+  if (!getRefreshToken) {
+    throw new ErrorApi(400, "Refresh Token Not Provided");
+  }
+
+  let decoded;
+
+  try {
+    decoded = jwt.verify(getRefreshToken, config.JWT_SECRET_KEY);
+  } catch (error) {
+    throw new ErrorApi(400, `Token Verification Failed ${error.message}`);
+  }
+
+  const session = await sessionModel.findById(decoded.sessionId);
+
+  if (!session) {
+    throw new ErrorApi(401, "Refresh Token is Invalid Session not Found");
+  }
+
+  if (session.revoked) {
+    throw new ErrorApi(401, "Session Already Revoked");
+  }
+
+  const isValidRefreshToken = await bcrypt.compare(
+    getRefreshToken,
+    session.refreshTokenHash,
+  );
+
+  if (!isValidRefreshToken) {
+    throw new ErrorApi(401, "Invalid Refresh Token");
+  }
+
+  const user = await userModel.findById(decoded.id);
+
+  if (!user) {
+    throw new ErrorApi(401, "User Not Found");
+  }
+
+  const revokedSession = await sessionModel.findOneAndUpdate(
+    { _id: decoded.sessionId, revoked: false },
+    {
+      $set: {
+        revoked: true,
+      },
+    },
+    { new: true },
+  );
+
+  if (!revokedSession) {
+    throw new ErrorApi(401, "Session Already Used");
+  }
+
+  const newSession = await sessionModel.create({
+    user: user._id,
+    revoked: false,
+    ip: req.ip,
+    userAgent: req.headers["user-agent"],
+  });
+
+  const { refreshToken, accessToken } =
+    await accessTokenAndrefreshTokenGenerator(user._id, newSession._id);
+
+  const refreshTokenHash = await bcrypt.hash(refreshToken, 12);
+
+  newSession.refreshTokenHash = refreshTokenHash;
+  await newSession.save();
+
+  res.cookie("refreshToken", refreshToken, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "Strict",
+  });
+
+  res
+    .status(200)
+    .json(
+      new ResponseApi(
+        200,
+        accessToken,
+        "Generate New Access Token And Refresh Token Successfully",
+      ),
+    );
+};
 
 
 
@@ -354,4 +476,6 @@ module.exports = {
   Login,
   Logout,
   LogoutFromAllDevice,
+  GetMe,
+  TokenRotation,
 };

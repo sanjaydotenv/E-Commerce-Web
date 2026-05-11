@@ -48,7 +48,7 @@ router.post("/login" , userController.Login)
 
 
 /**
- * @GET /api/v1/user/logout
+ * @GET /api/v1/users/logout
  * @description User Logout Route 
  */
 
@@ -59,11 +59,34 @@ router.get("/logout", userController.Logout)
 
 
 /**
- * @GET /api/v1/user/logoout-from-all
+ * @GET /api/v1/users/logoout-from-all
  * @Description User Logout From All Device Route
  */
 router.get("/logout-from-all-device", userController.LogoutFromAllDevice)
 
 // ---------------------------------------------------------------------------------------------------
+
+
+/**
+ * @GET /api/v1/users/get-me
+ * @Description Fetch The User Profile Info
+ */
+
+router.get("/get-me", userController.GetMe)
+
+
+// ---------------------------------------------------------------------------------------------------
+
+
+/**
+ * @GET /api/v1/users/token-rotation
+ * @Description Generate New Access Token And Refresh Token 
+ */
+
+
+router.get("/token-rotation" , userController.TokenRotation)
+
+
+
 
 module.exports = router
