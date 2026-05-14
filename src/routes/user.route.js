@@ -87,6 +87,16 @@ router.get("/get-me", userController.GetMe)
 router.get("/token-rotation" , userController.TokenRotation)
 
 
+// ---------------------------------------------------------------------------------------------------
+
+
+/**
+ * @POST /api/v1/users/change-password
+ * @Description Create New Password
+ */
+
+
+router.post("/change-password" , userController.ChangePassword)
 
 
 module.exports = router

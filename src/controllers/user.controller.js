@@ -465,8 +465,53 @@ const TokenRotation = async (req, res) => {
     );
 };
 
+/**
+ * @API Chnage Password API
+ * @description This Controller Create New Password
+ */
+
+const ChangePassword = async (req, res) => {
+  const accessToken = req.headers.authorization.split(" ")[1];
+
+  if (!accessToken) {
+    throw new ErrorApi(400, "Access Token Not Provided");
+  }
+
+  let decoded;
+
+  try {
+    decoded = jwt.verify(accessToken, config.JWT_SECRET_KEY);
+  } catch (error) {
+    throw new ErrorApi(400, `JWT Verification Failed ${error.message}`);
+  }
+
+  const user = await userModel.findById(decoded.id);
 
 
+  if (!user || !user.isVerify) {
+    throw new ErrorApi(401, "User Not Found OR User is Not Verified");
+  }
+
+  const { oldPassword, newPassword } = req.body;
+
+  const isValidPassword = await bcrypt.compare(oldPassword , user.password)
+
+  if (!isValidPassword) {
+    throw new ErrorApi(401 , "Password in Incorrect")
+  }
+
+  const password = await bcrypt.hash(newPassword , 12)
+
+  user.password = password
+  await user.save()
+
+
+  res.status(200).json(new ResponseApi(200 , {
+    userName: user.userName,
+    email: user.email
+  } , "Password Changed Successfully"))
+
+};
 
 // ---------------------------------------------------------------------------------------------------
 
@@ -478,4 +523,5 @@ module.exports = {
   LogoutFromAllDevice,
   GetMe,
   TokenRotation,
+  ChangePassword,
 };
